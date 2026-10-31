@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 
+ * STOCKPILOT AI DESIGN SYSTEM CONTRACT:
+ * 1. STRICTLY ZERO BORDER-RADIUS (Brutalist, institutional, sharp edges everywhere)
+ * 2. STRICTLY ZERO GRADIENTS (Solid, flat, high-contrast professional surfaces)
+ * 3. STRICTLY ZERO BLUE BRANDING (Curated Emerald/Forest palette)
+ */
+
+*, *::before, *::after {
+  border-radius: 0px !important;
+}
+
+:root {
+  --color-primary-base: #0F392B;
+  --color-primary-hover: #0A251C;
+  --color-accent-green: #059669;
+  --color-accent-light: #10B981;
+  --color-canvas-bg: #F9FAF9;
+  --color-canvas-card: #FFFFFF;
+  --color-border-sharp: #D8DDD8;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #F9FAF9;
+  color: #111814;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom sharp scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F0F2F0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0F392B;
+}
+
+/* High contrast sharp buttons */
+.btn-sharp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border-width: 1px;
+  padding: 0.5rem 1rem;
+  transition: all 0.1s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-primary {
+  background-color: #0F392B;
+  color: #FFFFFF;
+  border-color: #0A251C;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: #054632;
+}
+
+.btn-accent {
+  background-color: #047857;
+  color: #FFFFFF;
+  border-color: #065F46;
+}
+.btn-accent:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.btn-outline {
+  background-color: #FFFFFF;
+  color: #0F392B;
+  border-color: #0F392B;
+}
+.btn-outline:hover:not(:disabled) {
+  background-color: #F0F4F2;
+}
+
+.btn-danger {
+  background-color: #991B1B;
+  color: #FFFFFF;
+  border-color: #7F1D1D;
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: #B91C1C;
+}
+
+.card-sharp {
+  background-color: #FFFFFF;
+  border: 1px solid #D8DDD8;
+}
+
+.tag-sharp {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-width: 1px;
+}
