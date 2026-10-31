@@ -1,5 +1,6 @@
 import { AppError, ExtractedInvoice } from '../db/ledger.ts';
-import { geminiJson, VISION_MODELS } from './gemini.ts';
+import { VISION_MODELS } from './gemini.ts';
+import { aiJson, aiAvailable, aiProviders } from './llm.ts';
 
 export const ALLOWED_TYPES: Record<string, string> = {
   'image/jpeg': 'JPG',
@@ -52,10 +53,7 @@ const SCHEMA = {
   required: ['supplierName', 'invoiceNumber', 'invoiceDate', 'totalAmountPaise', 'lines'],
 };
 
-export function ocrProviderName() {
-  if (process.env.OCR_MOCK === '1') return 'mock';
-  return process.env.GEMINI_API_KEY ? `Gemini (${process.env.GEMINI_MODEL || 'gemini-3.8-flash'})` : null;
-}
+export const ocrProviderName = aiProviders;
 
 /** Sanitise model output: anything malformed becomes 0/empty and is flagged as uncertain for the reviewer. */
 function normalise(raw: any): ExtractedInvoice {
@@ -105,12 +103,13 @@ export async function extractInvoice(file: Buffer, mime: string): Promise<Extrac
       ],
     });
   }
-  if (!process.env.GEMINI_API_KEY) {
+  if (!aiAvailable()) {
     throw new AppError(503, 'OCR_NOT_CONFIGURED', 'Invoice reading is not set up on this server yet. You can still enter the invoice manually.');
   }
   try {
-    const parts = [{ text: PROMPT }, { inline_data: { mime_type: mime, data: file.toString('base64') } }];
-    return normalise(await geminiJson(parts, SCHEMA, VISION_MODELS, 30_000));
+    const { data, provider } = await aiJson({ prompt: PROMPT, schema: SCHEMA, geminiModels: VISION_MODELS, timeoutMs: 30_000, file: { mime, base64: file.toString('base64') } });
+    console.log(`Invoice read by ${provider}`);
+    return normalise(data);
   } catch (err: any) {
     console.error('OCR failure', err?.message || err);
     throw new AppError(502, 'OCR_FAILED', "We couldn't read this invoice right now. Try again in a minute, or enter it manually.");

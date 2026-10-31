@@ -1,12 +1,20 @@
 import { Router } from 'express';
 import { requireRole } from '../middleware/auth.ts';
 import { ledgerEngine, nameSimilarity, istDate } from '../db/ledger.ts';
-import { geminiJson, FAST_MODELS } from '../ai/gemini.ts';
+import { FAST_MODELS } from '../ai/gemini.ts';
+import { aiJson, aiAvailable } from '../ai/llm.ts';
 import { handle } from './util.ts';
 import type { ProductStockSummary } from '../db/schema.ts';
 
 const router = Router();
-const aiEnabled = () => !!process.env.GEMINI_API_KEY && process.env.OCR_MOCK !== '1';
+const aiEnabled = aiAvailable;
+
+/** Text-only AI call: Gemini's fast models first, then Groq. */
+async function askAi(parts: { text: string }[], schema: unknown, models: string[], timeoutMs: number) {
+  const { data, provider } = await aiJson({ prompt: parts[0].text, schema, geminiModels: models, timeoutMs });
+  console.log(`AI answered by ${provider}`);
+  return data;
+}
 
 // ---------------------------------------------------------------------------
 // Quick sale: "2 parle g, 1 oil, half kg rice" -> cart lines.
@@ -57,7 +65,7 @@ router.post(
     if (aiEnabled()) {
       try {
         const list = catalogue.map((p) => `${p.id} | ${p.name} | ${p.sku} | unit: ${p.unit}`).join('\n');
-        const out = await geminiJson(
+        const out = await askAi(
           [{
             text: `A shop assistant typed or spoke a customer's order (English, Hindi or Hinglish). Map it to products from this catalogue.
 Only use productIds from the catalogue. Quantities are in the product's unit ("half kg" = 0.5, "dozen" = 12). If an item can't be matched confidently, put the original words in "unmatched".
@@ -151,7 +159,7 @@ router.get(
     let source: 'ai' | 'rules' = 'rules';
     if (aiEnabled()) {
       try {
-        const out = await geminiJson(
+        const out = await askAi(
           [{
             text: `You are an assistant for the owner of a small Indian shop. Write a 2-3 sentence morning brief in simple English.
 Lead with what to order today and why (stock-out before the supplier can deliver). Mention at most 3 products.

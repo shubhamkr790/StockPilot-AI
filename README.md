@@ -8,7 +8,7 @@ You need Node 20 or newer.
 
 ```bash
 npm install
-cp .env.example .env        # add GEMINI_API_KEY for the AI features
+cp .env.example .env        # add GEMINI_API_KEY (and optionally GROQ_API_KEY)
 npm run dev:api             # API on http://localhost:3001
 npm run dev:web             # UI on http://localhost:3000 (proxies /api)
 npm test                    # API regression suite
@@ -29,6 +29,8 @@ server/
   middleware/auth.ts  Signed login tokens and role checks
   routes/             One file per API area (products, sales, invoices, forecast, ledger, ai)
   ai/gemini.ts        Gemini client with model fallback
+  ai/groq.ts          Groq client (backup provider)
+  ai/llm.ts           Tries Gemini, then Groq
   ai/invoiceOcr.ts    Invoice reading and file-type checks
 src/
   pages/              One file per screen
@@ -50,7 +52,7 @@ Sample invoices for testing OCR are in `samples/`. They use made-up suppliers. `
 
 ## Where AI is used
 
-Gemini (`gemini-3.8-flash` by default, set with `GEMINI_MODEL`) does three jobs. If that model is busy or retired, the server tries `gemini-3.5-flash` and then `gemini-flash-latest`.
+Gemini (`gemini-3.8-flash` by default, set with `GEMINI_MODEL`) does three jobs. If that model is busy, the server tries other Gemini models, then Groq if `GROQ_API_KEY` is set (`openai/gpt-oss-120b` for text, `qwen/qwen3.8-27b` for invoice images; Groq can't read PDFs), and finally the manual or rule-based fallback.
 
 1. Invoice scanning. It reads the supplier, invoice number, date, total and every line into a fixed JSON schema, in integer paise, and lists any field it could not read clearly. The owner reviews everything before stock changes.
 2. Quick sale. Staff type or say an order such as "2 parle g, 1 oil, half kg rice" (English, Hindi or Hinglish) and the bill fills in. The model can only choose from that shop's own products, and the server drops anything it returns that isn't one. Filling the bill sells nothing; the sale still goes through the normal stock check when staff tap Complete.
