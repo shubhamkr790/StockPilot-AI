@@ -7,3 +7,8 @@ data/
 .DS_Store
 Thumbs.db
 
+
+# Presentations & Archives
+*.pptx
+*.pdf
+*.zip
