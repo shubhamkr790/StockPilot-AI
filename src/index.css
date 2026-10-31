@@ -2,111 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 
- * STOCKPILOT AI DESIGN SYSTEM CONTRACT:
- * 1. STRICTLY ZERO BORDER-RADIUS (Brutalist, institutional, sharp edges everywhere)
- * 2. STRICTLY ZERO GRADIENTS (Solid, flat, high-contrast professional surfaces)
- * 3. STRICTLY ZERO BLUE BRANDING (Curated Emerald/Forest palette)
- */
-
-*, *::before, *::after {
-  border-radius: 0px !important;
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-canvas text-stone-900 font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  /* Numbers line up in tables and totals */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-:root {
-  --color-primary-base: #0F392B;
-  --color-primary-hover: #0A251C;
-  --color-accent-green: #059669;
-  --color-accent-light: #10B981;
-  --color-canvas-bg: #F9FAF9;
-  --color-canvas-card: #FFFFFF;
-  --color-border-sharp: #D8DDD8;
+@layer components {
+  .card {
+    @apply bg-white border border-stone-200 rounded-2xl shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 h-11 text-[15px] font-medium transition-colors
+      disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  }
+  .btn-outline {
+    @apply btn bg-white text-stone-800 border border-stone-200 hover:bg-stone-50;
+  }
+  .btn-ghost {
+    @apply btn text-stone-600 hover:bg-stone-100;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .btn-sm {
+    @apply h-9 px-3 text-sm rounded-lg;
+  }
+  .input {
+    @apply w-full h-11 rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 text-[15px] text-stone-900
+      placeholder:text-stone-400 focus:outline-none focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+  }
+  .input-sm {
+    @apply h-9 rounded-lg px-2.5 text-sm;
+  }
+  .label {
+    @apply block text-sm font-medium text-stone-700 mb-1.5;
+  }
+  .icon-tile {
+    @apply flex items-center justify-center w-11 h-11 rounded-xl bg-stone-100 text-stone-600 shrink-0;
+  }
 }
 
-body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #F9FAF9;
-  color: #111814;
-  margin: 0;
-  padding: 0;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Custom sharp scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #F0F2F0;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #0F392B;
-}
-
-/* High contrast sharp buttons */
-.btn-sharp {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  border-width: 1px;
-  padding: 0.5rem 1rem;
-  transition: all 0.1s ease-in-out;
-  cursor: pointer;
-  user-select: none;
-}
-
-.btn-primary {
-  background-color: #0F392B;
-  color: #FFFFFF;
-  border-color: #0A251C;
-}
-.btn-primary:hover:not(:disabled) {
-  background-color: #054632;
-}
-
-.btn-accent {
-  background-color: #047857;
-  color: #FFFFFF;
-  border-color: #065F46;
-}
-.btn-accent:hover:not(:disabled) {
-  background-color: #059669;
-}
-
-.btn-outline {
-  background-color: #FFFFFF;
-  color: #0F392B;
-  border-color: #0F392B;
-}
-.btn-outline:hover:not(:disabled) {
-  background-color: #F0F4F2;
-}
-
-.btn-danger {
-  background-color: #991B1B;
-  color: #FFFFFF;
-  border-color: #7F1D1D;
-}
-.btn-danger:hover:not(:disabled) {
-  background-color: #B91C1C;
-}
-
-.card-sharp {
-  background-color: #FFFFFF;
-  border: 1px solid #D8DDD8;
-}
-
-.tag-sharp {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.75rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
-  text-transform: uppercase;
-  border-width: 1px;
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
 }

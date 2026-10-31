@@ -1,173 +1,165 @@
-import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar';
-import { DashboardMetrics } from './components/DashboardMetrics';
-import { ProductCatalog } from './components/ProductCatalog';
-import { RestockBoard } from './components/RestockBoard';
-import { StaffPOSModal } from './components/StaffPOSModal';
-import { OCRInvoiceModal } from './components/OCRInvoiceModal';
-import { TestLabModal } from './components/TestLabModal';
-import { AuditLedgerModal } from './components/AuditLedgerModal';
-import { PitchDeckModal } from './components/PitchDeckModal';
-import { api } from './services/api';
-import { Business, UserProfile, DashboardMetrics as MetricsType } from './types';
+import React, { useCallback, useEffect, useState } from 'react';
+import { LayoutGrid, ShoppingCart, Package, FileText, PackagePlus, History, FlaskConical, LogOut } from 'lucide-react';
+import { api, session, Me } from './lib/api';
+import { Logo, Spinner, ToastProvider } from './components/ui';
+import { Landing } from './pages/Landing';
+import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
+import { Sell } from './pages/Sell';
+import { Products } from './pages/Products';
+import { Invoices } from './pages/Invoices';
+import { Restock } from './pages/Restock';
+import { Activity } from './pages/Activity';
+import { TestLab } from './pages/TestLab';
 
-export const App: React.FC = () => {
-  const [currentBusiness, setCurrentBusiness] = useState<Business | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [demoAccounts, setDemoAccounts] = useState<UserProfile[]>([]);
-  const [metrics, setMetrics] = useState<MetricsType | null>(null);
+export type Route = 'dashboard' | 'sell' | 'products' | 'invoices' | 'restock' | 'activity' | 'testlab';
 
-  // Active View Tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'restock' | 'ledger' | 'invoices'>('dashboard');
+const NAV: { id: Route; label: string; icon: React.ElementType; ownerOnly?: boolean; mobile?: boolean }[] = [
+  { id: 'dashboard', label: 'Home', icon: LayoutGrid, mobile: true },
+  { id: 'sell', label: 'Sell', icon: ShoppingCart, mobile: true },
+  { id: 'products', label: 'Products', icon: Package, mobile: true },
+  { id: 'invoices', label: 'Invoices', icon: FileText, ownerOnly: true, mobile: true },
+  { id: 'restock', label: 'Restock', icon: PackagePlus, ownerOnly: true, mobile: true },
+  { id: 'activity', label: 'Activity', icon: History, ownerOnly: true },
+  { id: 'testlab', label: 'Test lab', icon: FlaskConical, ownerOnly: true },
+];
 
-  // Modals
-  const [isPOSOpen, setIsPOSOpen] = useState(false);
-  const [isOCROpen, setIsOCROpen] = useState(false);
-  const [isTestLabOpen, setIsTestLabOpen] = useState(false);
-  const [isPitchDeckOpen, setIsPitchDeckOpen] = useState(false);
-  const [isLedgerOpen, setIsLedgerOpen] = useState(false);
-
+function useHashRoute(): [string, (r: string) => void] {
+  const read = () => window.location.hash.replace(/^#\/?/, '') || '';
+  const [route, setRoute] = useState(read);
   useEffect(() => {
-    initApp();
+    const on = () => {
+      setRoute(read());
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  return [route, (r: string) => (window.location.hash = `/${r}`)];
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <Root />
+    </ToastProvider>
+  );
+}
+
+function Root() {
+  const [route, go] = useHashRoute();
+  const [me, setMe] = useState<Me | null>(null);
+  const [loading, setLoading] = useState(!!session.token);
+
+  const logout = useCallback(() => {
+    session.set(null);
+    setMe(null);
+    go('login');
   }, []);
 
-  const initApp = async () => {
+  const loadMe = useCallback(async () => {
+    if (!session.token) return setLoading(false);
     try {
-      const [accRes, sessRes] = await Promise.all([
-        api.getDemoAccounts(),
-        api.getCurrentSession(),
-      ]);
-
-      setDemoAccounts(accRes.accounts);
-      setCurrentBusiness(sessRes.business);
-      setCurrentUser({
-        userId: sessRes.user.id,
-        name: sessRes.user.name,
-        role: sessRes.user.role,
-        businessId: sessRes.business.id,
-        businessName: sessRes.business.name,
-        businessType: sessRes.business.type,
-        avatarInitials: sessRes.user.name.slice(0, 2).toUpperCase(),
-      });
-      setMetrics(sessRes.metrics);
-    } catch (err: any) {
-      console.error('App init error:', err);
+      setMe(await api.me());
+    } catch {
+      session.set(null);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const handleSwitchUser = async (account: UserProfile) => {
-    api.setSession(account.businessId, account.userId);
-    await initApp();
-  };
+  useEffect(() => {
+    session.onUnauthorized(logout);
+    loadMe();
+  }, []);
 
-  const refreshMetrics = async () => {
-    try {
-      const res = await api.getDashboardMetrics();
-      setMetrics(res.metrics);
-    } catch (err: any) {
-      console.error('Metrics refresh error:', err);
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <Spinner className="w-7 h-7" />
+      </div>
+    );
+  }
+
+  if (!me) {
+    if (route === 'login') return <Login onLoggedIn={async () => { await loadMe(); go('dashboard'); }} />;
+    return <Landing onStart={() => go('login')} />;
+  }
+
+  const isOwner = me.user.role === 'OWNER';
+  const nav = NAV.filter((n) => isOwner || !n.ownerOnly);
+  let current = (nav.find((n) => n.id === route)?.id || 'dashboard') as Route;
+
+  const page = {
+    dashboard: <Dashboard me={me} go={go} />,
+    sell: <Sell />,
+    products: <Products me={me} />,
+    invoices: <Invoices />,
+    restock: <Restock me={me} onSettingsChanged={loadMe} />,
+    activity: <Activity />,
+    testlab: <TestLab />,
+  }[current];
 
   return (
-    <div className="min-h-screen bg-[#F9FAF9] text-[#111814] flex flex-col font-sans">
-      {/* Brutalist Sharp Navbar */}
-      <Navbar
-        currentBusiness={currentBusiness}
-        currentUser={currentUser}
-        demoAccounts={demoAccounts}
-        onSwitchUser={handleSwitchUser}
-        onOpenPOS={() => setIsPOSOpen(true)}
-        onOpenOCR={() => setIsOCROpen(true)}
-        onOpenTestLab={() => setIsTestLabOpen(true)}
-        onOpenPitchDeck={() => setIsPitchDeckOpen(true)}
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          if (tab === 'ledger') {
-            setIsLedgerOpen(true);
-          } else {
-            setActiveTab(tab);
-          }
-        }}
-      />
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
-        
-        {/* Top Executive Dashboard Metrics Bar */}
-        <DashboardMetrics
-          metrics={metrics}
-          onNavigateToRestock={() => setActiveTab('restock')}
-        />
-
-        {/* View Switching */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            {/* Split View on Dashboard: Restock Action Board + Quick Product Table */}
-            <RestockBoard />
-            <div className="pt-6 border-t border-[#D8DDD8]">
-              <ProductCatalog
-                currentUser={currentUser}
-                onRefreshMetrics={refreshMetrics}
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'products' && (
-          <ProductCatalog
-            currentUser={currentUser}
-            onRefreshMetrics={refreshMetrics}
-          />
-        )}
-
-        {activeTab === 'restock' && (
-          <RestockBoard />
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-[#D8DDD8] bg-white py-4 text-xs font-mono text-[#637069] text-center">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
-            <strong>StockPilot AI</strong> • Built for MedaVida Intern Hackathon Challenge
-          </div>
-          <div>
-            Double-Entry Ledger • Explainable Forecasting • Zero Float Drift (Paise)
-          </div>
+    <div className="min-h-screen lg:pl-64">
+      {/* Desktop sidebar */}
+      <aside className="no-print hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col border-r border-stone-200 bg-white">
+        <div className="h-16 flex items-center px-5 border-b border-stone-200">
+          <Logo />
         </div>
-      </footer>
+        <nav className="flex-1 p-3 space-y-1">
+          {nav.map((n) => (
+            <button
+              key={n.id}
+              onClick={() => go(n.id)}
+              className={`w-full flex items-center gap-3 rounded-xl px-3 h-11 text-[15px] transition-colors ${
+                current === n.id ? 'bg-brand-50 text-brand-700 font-medium' : 'text-stone-600 hover:bg-stone-50'
+              }`}
+            >
+              <n.icon className="w-5 h-5" />
+              {n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-stone-200">
+          <p className="text-sm font-medium text-stone-900 truncate">{me.user.name}</p>
+          <p className="text-[13px] text-stone-500 truncate">
+            {isOwner ? 'Owner' : 'Staff'} · {me.business.name}
+          </p>
+          <button onClick={logout} className="btn-outline btn-sm w-full mt-3">
+            <LogOut className="w-4 h-4" /> Sign out
+          </button>
+        </div>
+      </aside>
 
-      {/* Global Modals */}
-      <StaffPOSModal
-        isOpen={isPOSOpen}
-        onClose={() => setIsPOSOpen(false)}
-        currentUser={currentUser}
-        onSaleComplete={refreshMetrics}
-      />
+      {/* Mobile header */}
+      <header className="no-print lg:hidden sticky top-0 z-30 h-16 flex items-center justify-between px-4 border-b border-stone-200 bg-canvas/95 backdrop-blur">
+        <Logo size={34} />
+        <div className="flex items-center gap-1">
+          <span className="text-[13px] text-stone-500 mr-1 max-w-[9rem] truncate">{me.user.name.split(' ')[0]} · {isOwner ? 'Owner' : 'Staff'}</span>
+          <button onClick={logout} className="p-2.5 rounded-xl text-stone-600 hover:bg-stone-100" aria-label="Sign out">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
 
-      <OCRInvoiceModal
-        isOpen={isOCROpen}
-        onClose={() => setIsOCROpen(false)}
-        currentUser={currentUser}
-        onInvoiceConfirmed={refreshMetrics}
-      />
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-6 lg:pt-10 pb-28 lg:pb-12">{page}</main>
 
-      <TestLabModal
-        isOpen={isTestLabOpen}
-        onClose={() => setIsTestLabOpen(false)}
-      />
-
-      <AuditLedgerModal
-        isOpen={isLedgerOpen}
-        onClose={() => setIsLedgerOpen(false)}
-      />
-
-      <PitchDeckModal
-        isOpen={isPitchDeckOpen}
-        onClose={() => setIsPitchDeckOpen(false)}
-      />
+      {/* Mobile bottom tabs */}
+      <nav className="no-print lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-stone-200 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+        <div className="flex">
+          {nav.filter((n) => n.mobile).map((n) => (
+            <button
+              key={n.id}
+              onClick={() => go(n.id)}
+              className={`flex-1 flex flex-col items-center gap-1 pt-2.5 pb-2 text-[12px] ${current === n.id ? 'text-brand-600 font-medium' : 'text-stone-500'}`}
+            >
+              <n.icon className="w-6 h-6" strokeWidth={current === n.id ? 2.2 : 1.8} />
+              {n.label}
+            </button>
+          ))}
+        </div>
+      </nav>
     </div>
   );
-};
-export default App;
+}
