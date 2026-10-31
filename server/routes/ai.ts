@@ -83,7 +83,7 @@ Order: """${text}"""`,
             required: ['items'],
           },
           FAST_MODELS,
-          8_000
+          4_000
         );
         parsed = { items: Array.isArray(out?.items) ? out.items : [], unmatched: Array.isArray(out?.unmatched) ? out.unmatched.map(String) : [] };
         source = 'ai';
@@ -168,7 +168,7 @@ Facts: ${key}`,
           }],
           { type: 'OBJECT', properties: { brief: { type: 'STRING' } }, required: ['brief'] },
           FAST_MODELS,
-          8_000
+          4_000
         );
         if (typeof out?.brief === 'string' && out.brief.trim()) {
           brief = out.brief.trim().slice(0, 600);

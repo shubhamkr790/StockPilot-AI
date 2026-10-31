@@ -1,6 +1,7 @@
 // Invoices need the strongest vision model available; short text tasks use the fast "lite" models.
 export const VISION_MODELS = [process.env.GEMINI_MODEL || 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
-export const FAST_MODELS = ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite'];
+// Kept short: if Gemini is busy we'd rather hand over to Groq quickly than keep a cashier waiting.
+export const FAST_MODELS = ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
 
 /**
  * Calls Gemini and returns parsed JSON matching `schema`. Busy or retired models are common on the
