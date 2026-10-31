@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import express from 'express';
-import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import authRouter from './routes/auth.ts';
 import productsRouter from './routes/products.ts';
@@ -9,73 +10,42 @@ import salesRouter from './routes/sales.ts';
 import invoicesRouter from './routes/invoices.ts';
 import forecastRouter from './routes/forecast.ts';
 import ledgerRouter from './routes/ledger.ts';
-import testLabRouter from './routes/testLab.ts';
-import { tenantAuthMiddleware } from './middleware/auth.ts';
+import aiRouter from './routes/ai.ts';
+import { requireAuth } from './middleware/auth.ts';
+import { ocrProviderName } from './ai/invoiceOcr.ts';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const app = express();
-const PORT = process.env.PORT || 3001;
-
-// Global Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Request Logging
-app.use((req, _res, next) => {
-  const timestamp = new Date().toISOString().slice(11, 19);
-  console.log(`[${timestamp}] ${req.method} ${req.url}`);
-  next();
-});
-
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'healthy',
-    system: 'StockPilot AI',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
+export function createApp() {
+  const app = express();
+  app.disable('x-powered-by');
+  app.use(express.json({ limit: '1mb' }));
+  app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'BAD_JSON', message: 'Request body is not valid JSON.' });
+    next(err);
   });
-});
 
-// Unauthenticated / Auth Routes
-app.use('/api/auth', authRouter);
-app.use('/api/test', testLabRouter);
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok', ocr: ocrProviderName() }));
+  app.use('/api/auth', authRouter);
 
-// Tenant-Scoped & RBAC Protected Business Routes
-app.use('/api/products', tenantAuthMiddleware, productsRouter);
-app.use('/api/sales', tenantAuthMiddleware, salesRouter);
-app.use('/api/invoices', tenantAuthMiddleware, invoicesRouter);
-app.use('/api/forecast', tenantAuthMiddleware, forecastRouter);
-app.use('/api/ledger', tenantAuthMiddleware, ledgerRouter);
+  // Everything below requires a signed session; the business is taken from the token only.
+  app.use('/api/products', requireAuth, productsRouter);
+  app.use('/api/sales', requireAuth, salesRouter);
+  app.use('/api/invoices', requireAuth, invoicesRouter);
+  app.use('/api/forecast', requireAuth, forecastRouter);
+  app.use('/api/ledger', requireAuth, ledgerRouter);
+  app.use('/api/ai', requireAuth, aiRouter);
+  app.use('/api', (_req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Unknown API route.' }));
 
-// Serve static frontend build if present in production
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+  const distPath = path.join(__dirname, '../dist');
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+  }
+  return app;
+}
 
-// Fallback to index.html for client routing
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
-    if (err) {
-      res.status(200).send(`
-        <html>
-          <body style="font-family: sans-serif; background: #0F392B; color: white; padding: 40px;">
-            <h2>StockPilot AI Backend API Active</h2>
-            <p>Port: ${PORT}</p>
-            <p>Open <a href="http://localhost:3000" style="color: #34D399;">http://localhost:3000</a> for the Vite Frontend</p>
-          </body>
-        </html>
-      `);
-    }
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`  STOCKPILOT AI — SMART INVENTORY REPLENISHMENT SERVER `);
-  console.log(`  Running on http://localhost:${PORT}                  `);
-  console.log(`  Frontend dev proxy configured to :3000               `);
-  console.log(`=======================================================`);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  const PORT = Number(process.env.PORT) || 3001;
+  createApp().listen(PORT, () => console.log(`StockPilot API on http://localhost:${PORT} (OCR: ${ocrProviderName() || 'not configured'})`));
+}
