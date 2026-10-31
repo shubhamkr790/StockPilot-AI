@@ -14,11 +14,11 @@ export function Landing({ onStart, onSignup }: { onStart: () => void; onSignup: 
   return (
     <div className="min-h-screen bg-white">
       <nav className="sticky top-0 z-20 bg-[#FBF8F3]/85 backdrop-blur border-b border-stone-200/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Logo />
-          <div className="flex items-center gap-2">
-            <button onClick={onStart} className="btn-ghost btn-sm">Log in</button>
-            <button onClick={onSignup} className="btn-primary btn-sm">Get started</button>
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
+          <Logo size={32} />
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button onClick={onStart} className="btn-ghost btn-sm whitespace-nowrap px-2.5 sm:px-3">Log in</button>
+            <button onClick={onSignup} className="btn-primary btn-sm whitespace-nowrap px-3">Get started</button>
           </div>
         </div>
       </nav>

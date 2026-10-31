@@ -7,7 +7,7 @@ export function Logo({ size = 36, withText = true }: { size?: number; withText?:
     <div className="flex items-center gap-2.5">
       <img src="/logo.svg" width={size} height={size} alt="" className="rounded-[10px]" />
       {withText && (
-        <span className="text-[19px] font-semibold tracking-tight text-stone-900">
+        <span className="whitespace-nowrap text-[17px] sm:text-[19px] font-semibold tracking-tight text-stone-900">
           StockPilot <span className="text-brand-600">AI</span>
         </span>
       )}
