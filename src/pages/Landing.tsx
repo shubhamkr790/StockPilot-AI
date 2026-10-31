@@ -13,7 +13,7 @@ const FEATURES = [
 export function Landing({ onStart }: { onStart: () => void }) {
   return (
     <div className="min-h-screen bg-white">
-      <nav className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-stone-100">
+      <nav className="sticky top-0 z-20 bg-[#FBF8F3]/85 backdrop-blur border-b border-stone-200/60">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Logo />
           <button onClick={onStart} className="btn-primary btn-sm">
@@ -22,8 +22,11 @@ export function Landing({ onStart }: { onStart: () => void }) {
         </div>
       </nav>
 
-      <section className="px-4 sm:px-6 pt-12 pb-12 md:pt-16 md:pb-16 text-center bg-gradient-to-b from-white to-canvas">
-        <div className="max-w-3xl mx-auto">
+      <section className="relative overflow-hidden px-4 sm:px-6 pt-12 pb-14 md:pt-16 md:pb-20 text-center bg-[#FBF8F3]">
+        {/* Soft cool glow behind the headline, warm glow behind the screenshot */}
+        <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 -translate-x-[70%] w-[720px] h-[520px] rounded-full bg-brand-200/45 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute top-[42%] left-1/2 -translate-x-[10%] w-[760px] h-[520px] rounded-full bg-amber-200/40 blur-3xl" />
+        <div className="relative max-w-3xl mx-auto">
           <span className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-sm text-stone-600">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-500" /> Built for kirana stores and pharmacies
           </span>
@@ -31,7 +34,7 @@ export function Landing({ onStart }: { onStart: () => void }) {
             Never run out of what <span className="text-brand-600">sells fastest</span>
           </h1>
           <p className="mt-5 text-lg sm:text-xl text-stone-600 leading-relaxed max-w-2xl mx-auto">
-            StockPilot replaces the stock notebook: read supplier invoices with OCR, record sales in seconds, and know exactly what to reorder — and why.
+            StockPilot replaces the stock notebook. AI reads your supplier invoices, staff ring up a sale by typing or saying it, and you see exactly what to reorder and why.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <button onClick={onStart} className="btn-primary h-12 px-7 text-base">
@@ -42,7 +45,8 @@ export function Landing({ onStart }: { onStart: () => void }) {
         </div>
 
         {/* Real screenshot of the owner dashboard, framed like a browser window */}
-        <div className="max-w-5xl mx-auto mt-10 md:mt-12 rounded-2xl border border-stone-200 bg-white p-1.5 sm:p-2 shadow-pop">
+        <div className="hero-shot relative max-w-5xl mx-auto mt-10 md:mt-12">
+          <div className="rounded-2xl border border-stone-200/80 bg-white p-1.5 sm:p-2 shadow-[0_30px_80px_-20px_rgba(30,91,79,0.35)]">
           <div className="flex items-center gap-1.5 px-2.5 pt-1 pb-2.5">
             <span className="w-2.5 h-2.5 rounded-full bg-stone-200" />
             <span className="w-2.5 h-2.5 rounded-full bg-stone-200" />
@@ -57,17 +61,18 @@ export function Landing({ onStart }: { onStart: () => void }) {
             className="w-full h-auto rounded-xl border border-stone-100"
             fetchPriority="high"
           />
+          </div>
         </div>
       </section>
 
-      <section className="px-4 sm:px-6 py-20 bg-canvas">
+      <section className="px-4 sm:px-6 py-20 bg-white">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl font-bold tracking-tight text-center">Everything a small shop needs</h2>
           <p className="text-stone-600 text-center mt-3 max-w-xl mx-auto">No spreadsheets. No guessing. Just an accurate stock count and a clear reorder list.</p>
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="card p-6">
-                <div className="w-11 h-11 rounded-xl bg-brand-50 text-brand-600 grid place-items-center">
+            {FEATURES.map((f, i) => (
+              <div key={f.title} className={`card p-6 ${i % 2 ? 'bg-[#FFFCF7]' : 'bg-[#F7FBFA]'}`}>
+                <div className={`w-11 h-11 rounded-xl grid place-items-center ${i % 2 ? 'bg-amber-100/70 text-amber-700' : 'bg-brand-100/70 text-brand-700'}`}>
                   <f.icon className="w-5 h-5" />
                 </div>
                 <h3 className="mt-4 font-semibold text-lg">{f.title}</h3>
@@ -78,13 +83,16 @@ export function Landing({ onStart }: { onStart: () => void }) {
         </div>
       </section>
 
-      <section className="px-4 sm:px-6 py-16 bg-white border-t border-stone-100 text-center">
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">See it with real data</h2>
-        <p className="text-stone-600 mt-2">Sign in as Ramesh (owner), Priya (staff) or Anita (a separate pharmacy).</p>
-        <button onClick={onStart} className="btn-primary h-12 px-7 text-base mt-6">
-          Open the demo <ArrowRight className="w-4 h-4" />
-        </button>
-        <p className="mt-10 text-sm text-stone-400">StockPilot · MedaVida intern hackathon 2026</p>
+      <section className="relative overflow-hidden px-4 sm:px-6 py-16 sm:py-20 bg-brand-800 text-center">
+        <div aria-hidden className="pointer-events-none absolute -bottom-40 left-1/2 -translate-x-1/2 w-[640px] h-[360px] rounded-full bg-brand-500/35 blur-3xl" />
+        <div className="relative">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">See it with real data</h2>
+          <p className="text-brand-100 mt-2">Sign in as Ramesh (owner), Priya (staff) or Anita (a separate pharmacy).</p>
+          <button onClick={onStart} className="btn h-12 px-7 text-base mt-6 bg-white text-brand-800 hover:bg-brand-50">
+            Open the demo <ArrowRight className="w-4 h-4" />
+          </button>
+          <p className="mt-10 text-sm text-brand-200/70">StockPilot AI · MedaVida intern hackathon 2026</p>
+        </div>
       </section>
     </div>
   );
