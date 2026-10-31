@@ -1,82 +1,97 @@
-# StockPilot AI — Product Demo Video Script (2-3 Minutes)
-**Challenge**: MedaVida 4-Hour AI-Assisted Hackathon  
-**Target Video Duration**: 2 minutes 45 seconds  
+# StockPilot AI demo script (about 2 min 45 s)
+
+Record on a laptop in a browser window at least 1280 px wide. Before you start, open the live link once so the server is awake, and keep `samples/invoice-2-fmcg.png` ready on your desktop.
+
+What you say is in quotes. What you do is in brackets.
 
 ---
 
-## 🎬 Act 1: The Bharat Retail Crisis & Personas (0:00 - 0:35)
-* **Visual**: Screen recording opens on `http://localhost:3000`. Clean, brutalist, sharp-edged industrial UI in deep emerald green and crisp white. Zero gradients. Zero border-radius.
-* **Audio / Voiceover**:
-  > "Meet Ramesh. He runs Ramesh General Store in Vadodara with 300 products across four suppliers, tracking everything in a notebook. Fast sellers like cooking oil run out before he notices, while slow items sit on shelves for months. Supplier bills pile up and stock counts are almost always wrong.
-  >
-  > Today, we built **StockPilot AI**—an institutional-grade double-entry inventory ledger with OCR invoice reconciliation and explainable predictive restocking."
-* **Action**:
-  - Show the top bar displaying **STORE: Ramesh General Store (KIRANA)** and **Ramesh (👑 OWNER)**.
-  - Hover over the 5-column dashboard metrics showing Total Products, Low Stock alerts, and total stock valuation in ₹.
+## 0:00 Landing page (15 s)
+
+[Open the live link. The landing page is on screen.]
+
+"Hi, I'm [your name]. This is StockPilot AI, which I built for the MedaVida hackathon. It's for small shops like Ramesh's, where stock lives in a notebook and fast sellers run out without anyone noticing."
+
+[Click "Try the demo".]
+
+## 0:15 Sign in as the owner (15 s)
+
+[Tap Ramesh on the sign-in page.]
+
+"There are three demo accounts: Ramesh the owner, Priya who works at his counter, and Anita, who runs a separate pharmacy. I'll start as Ramesh."
+
+[Dashboard loads.]
+
+"The first thing Ramesh sees is what to reorder. Sunflower oil sells 6 a day, he has 9 left, and his supplier takes 4 days. So it says order 48, two packs of 24, and it runs out tomorrow. The AI brief at the top says the same thing in plain words."
+
+## 0:30 Add a product (20 s)
+
+[Products → Add product. Type: name "Haldiram Bhujia 200g", SKU "SNK-BHU-200", category "Snacks", cost 45, price 55, opening stock 10. Save.]
+
+"Adding a product takes a few seconds. Prices are stored in paise, as whole numbers, so the money never picks up rounding errors."
+
+[Click History on the new product.]
+
+"Every change to stock is a recorded movement with who did it, when and why. Here's the opening stock entry."
+
+## 0:50 Scan a supplier invoice (40 s)
+
+[Invoices → Choose file → pick invoice-2-fmcg.png. Wait for it to read.]
+
+"Now a supplier bill. I upload a photo and Gemini reads it: supplier, invoice number, date, and every line."
+
+[Scroll through the review screen.]
+
+"Nothing has changed stock yet. Each line is matched to a product, and I can change the match. Haldiram is now in my catalogue, so I'll point it there. And look at the bottom: the lines add up to ₹60 less than the printed total, so it warns me."
+
+[Fix the total to match the lines. Click Confirm.]
+
+"I confirm, and all lines are added to stock together, or none are."
+
+[Upload the same file again.]
+
+"If I upload the same invoice twice, it warns me straight away, and confirming it again is refused. So stock can never be added twice."
+
+## 1:30 Make a sale as staff (25 s)
+
+[Sign out. Tap Priya.]
+
+"Now I'm Priya at the counter. She can sell and check stock, but she can't change prices or approve invoices."
+
+[On Sell, type in the AI box: "2 parle g, 1 sunflower oil, half kg rice". Press Add. Or click the mic and say it.]
+
+"She just types or says the order, and the bill fills itself. She checks it and taps Complete sale. That took about ten seconds."
+
+[Tap Complete sale.]
+
+## 1:55 A failure case (20 s)
+
+[Search sunflower oil, set quantity to 50, try to complete.]
+
+"If she tries to sell more than we have, it's blocked and tells her how many are left."
+
+[Sign out. Tap Ramesh. Open Test lab. Click Run all.]
+
+"The owner's Test lab runs the hard cases against the live server. Two staff selling the last units at the same moment: only one wins. Anita changing the URL to open Ramesh's product: not found. Staff changing a price: refused."
+
+## 2:15 Restock and export (20 s)
+
+[Open Restock.]
+
+"Restock shows every suggestion with its reason and the actual calculation. 6 times 4 plus 4 days, minus the 9 in stock, is 39, rounded up to packs of 24 gives 48. If a product has less than a week of sales, it says not enough history instead of guessing."
+
+[Click Export CSV, then Print.]
+
+"Ramesh can export the list or print it for his supplier."
+
+## 2:35 Close (10 s)
+
+"That's StockPilot AI. The code, the README and the sample invoices are in the submission. Thanks for watching."
 
 ---
 
-## 🎬 Act 2: Multi-Tenancy & Fast Staff POS (<15s Sale) (0:35 - 1:10)
-* **Visual**: Click the Persona Switcher and switch to **Priya (Staff)**.
-* **Audio / Voiceover**:
-  > "StockPilot enforces strict server-level RBAC. Priya is staff. Notice the catalog: Priya can view stock, but cannot edit prices, delete products, or approve invoices.
-  >
-  > For checkout, our POS is designed for phone ergonomics—allowing staff to complete a sale in under 15 seconds."
-* **Action**:
-  - Click **POS SALE**.
-  - Type "Oil" in the search box. Click to add 1 unit.
-  - Type "Biscuits". Click to add 2 units.
-  - Notice the bill summary calculating total in exact Paise (`₹155.00`).
-  - Click **COMPLETE SALE (₹155.00)**.
-  - Instant printable receipt modal appears with Receipt number and confirmation that the movement was written atomically to the ledger.
+## If something goes wrong while recording
 
----
-
-## 🎬 Act 3: Human-in-the-Loop OCR Invoice Import (1:10 - 1:50)
-* **Visual**: Switch persona back to **Ramesh (👑 OWNER)**.
-* **Audio / Voiceover**:
-  > "Now let's solve Ramesh's invoice headache. Our rule: *OCR suggests, the owner confirms.* Nothing extracted touches the ledger until a human reviews it."
-* **Action**:
-  - Click **IMPORT INVOICE**.
-  - Click **Gujarat Agro Foods (INV-GA-2026-981)** from the test presets.
-  - Show the extracted table: Supplier, Invoice Date, and line items.
-  - Highlight the fuzzy matching column: "Fortune Sunflower Oil" automatically matched to catalog SKU.
-  - Point to the arithmetic cross-check: verifies $\text{Qty} \times \text{Price} = \text{Total}$ and $\sum \text{Lines} = \text{Invoice Total}$.
-  - Click **CONFIRM & ADD TO STOCK**.
-  - Toast appears: *"Invoice confirmed. 4 purchase ledger entries created."*
-  - Show that Cooking Oil stock increased by exactly 24 units.
-
----
-
-## 🎬 Act 4: Explainable Forecasting & Restock Math (1:50 - 2:20)
-* **Visual**: Navigate to **Restock Forecast** tab.
-* **Audio / Voiceover**:
-  > "Every prediction in StockPilot comes from the product's own sales history and shows its working. Zero black-box guessing.
-  >
-  > Look at Cooking Oil. Our engine displays:
-  > *'Sells 6.0/day, 9 left, 4-day lead time + 4-day buffer → order 48 (2 cartons of 24)'*.
-  >
-  > It calculates daily velocity, days of cover, predicts the exact stock-out date, and rounds up to the supplier's carton pack size. If an item has less than 7 days of history, it tags it as 'Cold Start' instead of hallucinating.
-  >
-  > Ramesh can export the purchase order directly to CSV or print it for his Gujarat wholesaler with one click."
-* **Action**:
-  - Point to the visible explanation card.
-  - Click **EXPORT CSV** to show instant file generation.
-
----
-
-## 🎬 Act 5: Live Test Lab — Concurrency & Security Proof (2:20 - 2:45)
-* **Visual**: Click **TEST LAB** in the top navigation bar.
-* **Audio / Voiceover**:
-  > "Finally, let's see what happens when things go wrong. We built an embedded Verification Lab so judges can test our architecture live:
-  >
-  > Test 1: Concurrency Race Condition. Two workers try to sell the last single unit at the exact same millisecond. Running the test... Exactly one gets 200 OK, the other is rejected with 409 Conflict. Stock never goes negative.
-  >
-  > Test 2: Cross-Tenant Breach. Anita Medical attempts to fetch Ramesh's product ID. Server immediately enforces 403 Forbidden.
-  >
-  > Test 3: Duplicate Invoice. Re-submitting the same invoice is blocked to prevent double-crediting.
-  >
-  > StockPilot AI: Immutable ledger, explainable AI, zero float drift. Thank you!"
-
----
-*End of video demonstration.*
+- The invoice takes more than 20 seconds: Gemini is busy. Wait, or click "Enter manually" and say "OCR is busy, so I'll show the manual path that goes through the same review."
+- The live site is slow on first load: the free server was asleep. Refresh once.
+- The data looks messy after practice runs: redeploy on Render, or locally delete `data/state.json` and restart. Both reset to the demo seed.
