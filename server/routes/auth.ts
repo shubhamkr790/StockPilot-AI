@@ -1,48 +1,50 @@
-import { Router, Response, Request } from 'express';
+import { Router } from 'express';
 import { ledgerEngine } from '../db/ledger.ts';
-import { INITIAL_USERS, INITIAL_BUSINESSES } from '../db/seed.ts';
+import { requireAuth, signToken } from '../middleware/auth.ts';
+import { handle } from './util.ts';
 
 const router = Router();
+const failedAttempts = new Map<string, { count: number; until: number }>();
 
-// GET /api/auth/demo-accounts - List all pre-configured demo personas for 1-click judge switching
-router.get('/demo-accounts', (_req: Request, res: Response) => {
-  const accounts = INITIAL_USERS.map((user) => {
-    const business = INITIAL_BUSINESSES.find((b) => b.id === user.businessId);
-    return {
-      userId: user.id,
-      name: user.name,
-      role: user.role,
-      businessId: user.businessId,
-      businessName: business?.name,
-      businessType: business?.type,
-      avatarInitials: user.name.slice(0, 2).toUpperCase(),
-    };
-  });
-
+// Demo accounts are listed so judges can sign in quickly. PINs are documented in the README.
+router.get('/demo-accounts', (_req, res) => {
   res.json({
-    success: true,
-    accounts,
+    accounts: ledgerEngine.listUsers().map((u) => ({
+      username: u.username,
+      name: u.name,
+      role: u.role,
+      businessName: ledgerEngine.getBusiness(u.businessId)?.name,
+    })),
   });
 });
 
-// GET /api/auth/current - Get current session context
-router.get('/current', (req: Request, res: Response) => {
-  const tenantId = (req.headers['x-business-id'] as string) || 'biz_ramesh_01';
-  const userId = (req.headers['x-user-id'] as string) || 'usr_ramesh';
-
-  const business = ledgerEngine.getBusiness(tenantId);
-  const user = ledgerEngine.getUser(userId);
-
-  if (!business || !user) {
-    return res.status(404).json({ error: 'SESSION_NOT_FOUND', message: 'Invalid tenant or user ID' });
+router.post('/login', (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const pin = String(req.body?.pin || '');
+  const lock = failedAttempts.get(username);
+  if (lock && lock.count >= 5 && Date.now() < lock.until) {
+    return res.status(429).json({ error: 'TOO_MANY_ATTEMPTS', message: 'Too many wrong PINs. Try again in a few minutes.' });
   }
-
-  res.json({
-    success: true,
-    business,
-    user,
-    metrics: ledgerEngine.getDashboardMetrics(tenantId),
-  });
+  const user = ledgerEngine.findUserByUsername(username);
+  if (!user || user.pin !== pin) {
+    const n = (lock && Date.now() < lock.until ? lock.count : 0) + 1;
+    failedAttempts.set(username, { count: n, until: Date.now() + 5 * 60 * 1000 });
+    return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Wrong username or PIN.' });
+  }
+  failedAttempts.delete(username);
+  res.json({ token: signToken(user.id) });
 });
+
+router.get(
+  '/me',
+  requireAuth,
+  handle((req, res) => {
+    const user = ledgerEngine.getUser(req.userId)!;
+    res.json({
+      user: { id: user.id, username: user.username, name: user.name, role: user.role },
+      business: ledgerEngine.getBusiness(req.tenantId),
+    });
+  })
+);
 
 export default router;

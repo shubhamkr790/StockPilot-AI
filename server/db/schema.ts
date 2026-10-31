@@ -11,11 +11,13 @@ export interface Business {
   type: BusinessType;
   currency: string;
   address: string;
+  targetCoverDays: number;     // Days of stock to hold beyond supplier lead time
 }
 
 export interface User {
   id: string;
   businessId: string;
+  username: string;
   name: string;
   role: UserRole;
   pin: string;
@@ -59,10 +61,13 @@ export interface InvoiceLineItem {
   matchedProductId?: string;
   matchedProductName?: string;
   isNewProduct: boolean;
+  newProductUnit?: UnitOfMeasure;
   quantity: number;
   unitPricePaise: number;      // Cost per unit in paise
   lineTotalPaise: number;      // Qty * UnitPrice
-  confidence: number;          // 0.0 to 1.0 confidence score
+  confidence: number;          // 0.0 to 1.0 match confidence
+  matchType: 'SKU' | 'EXACT' | 'FUZZY' | 'NEW';
+  uncertainFields: string[];   // Fields the OCR engine was unsure about
   isArithmeticMismatch?: boolean;
 }
 
@@ -78,7 +83,30 @@ export interface Invoice {
   createdByUserId: string;
   createdAt: string;
   confirmedAt?: string;
-  notes?: string;
+  confirmedByUserId?: string;
+  uncertainFields: string[];
+  source: 'OCR' | 'MANUAL' | 'SAMPLE';
+  fileName?: string;
+}
+
+export interface HistoricalSale {
+  businessId: string;
+  productId: string;
+  date: string;                // YYYY-MM-DD (IST)
+  quantity: number;
+}
+
+export interface AuditLog {
+  id: string;
+  businessId: string;
+  userId: string;
+  userName: string;
+  action: string;              // e.g. PRODUCT_CREATED, SALE_RECORDED, INVOICE_CONFIRMED
+  entityType: 'PRODUCT' | 'SALE' | 'INVOICE' | 'ADJUSTMENT' | 'SETTINGS' | 'IMPORT' | 'AUTH';
+  entityId: string;
+  summary: string;
+  details?: Record<string, unknown>;
+  timestamp: string;
 }
 
 export interface SaleItem {
@@ -112,15 +140,18 @@ export interface ProductStockSummary extends Product {
   totalSold: number;
   totalAdjusted: number;
   salesVelocity: number;       // Average units sold per day
-  daysOfCover: number;         // Current stock / velocity (Infinity if 0)
+  daysOfCover: number | null;  // Current stock / velocity (null if no sales)
   predictedStockOutDate: string | null;
   status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
   restockRecommendation: {
     needsRestock: boolean;
-    recommendedQuantity: number;
+    recommendedQuantity: number | null;
     targetDaysCover: number;
     packSize: number;
     explanation: string;
+    calculation: string | null;
     hasEnoughHistory: boolean;
+    historyDays: number;
+    alertReason: string | null;
   };
 }

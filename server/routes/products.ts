@@ -1,143 +1,66 @@
-import { Router, Response } from 'express';
-import { AuthenticatedRequest, requireRole } from '../middleware/auth.ts';
+import { Router } from 'express';
+import { requireRole } from '../middleware/auth.ts';
 import { ledgerEngine } from '../db/ledger.ts';
+import { handle } from './util.ts';
 
 const router = Router();
+const ownerOnly = requireRole(['OWNER']);
 
-// GET /api/products - List all products for current tenant with real-time stock & forecasts
-router.get('/', (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const category = req.query.category as string | undefined;
-    const query = req.query.q as string | undefined;
-    const includeArchived = req.query.archived === 'true';
-
-    const products = ledgerEngine.listProducts(authReq.tenantId, {
-      category,
-      query,
-      includeArchived,
+router.get(
+  '/',
+  handle((req, res) => {
+    const products = ledgerEngine.listProducts(req.tenantId, {
+      category: req.query.category as string | undefined,
+      query: req.query.q as string | undefined,
+      status: req.query.status as string | undefined,
+      includeArchived: req.query.archived === 'true',
     });
+    res.json({ count: products.length, products });
+  })
+);
 
+router.get('/:id', handle((req, res) => res.json({ product: ledgerEngine.getProductSummary(req.tenantId, req.params.id) })));
+
+router.get(
+  '/:id/movements',
+  handle((req, res) => {
+    ledgerEngine.getOwnedProduct(req.tenantId, req.params.id);
+    res.json({ movements: ledgerEngine.getMovementHistory(req.tenantId, 200, req.params.id) });
+  })
+);
+
+router.post(
+  '/',
+  ownerOnly,
+  handle((req, res) => {
+    const { openingStock, ...data } = req.body || {};
+    res.status(201).json({ product: ledgerEngine.addProduct(req.tenantId, req.userId, data, openingStock === undefined ? 0 : openingStock) });
+  })
+);
+
+router.put('/:id', ownerOnly, handle((req, res) => res.json({ product: ledgerEngine.updateProduct(req.tenantId, req.userId, req.params.id, req.body || {}) })));
+
+router.delete(
+  '/:id',
+  ownerOnly,
+  handle((req, res) => {
+    const result = ledgerEngine.archiveProduct(req.tenantId, req.userId, req.params.id);
     res.json({
-      success: true,
-      tenantId: authReq.tenantId,
-      count: products.length,
-      products,
+      result,
+      message: result === 'ARCHIVED' ? 'Product archived. Its sales and stock history are kept.' : 'Product deleted (it had no history).',
     });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
+  })
+);
 
-// GET /api/products/:id - Single product with strict tenant ownership check
-router.get('/:id', (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const product = ledgerEngine.getProductSummary(authReq.tenantId, req.params.id);
-    res.json({ success: true, product });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
+router.post('/:id/restore', ownerOnly, handle((req, res) => res.json({ product: ledgerEngine.restoreProduct(req.tenantId, req.userId, req.params.id) })));
 
-// POST /api/products - Create product (OWNER only)
-router.post('/', requireRole(['OWNER']), (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const {
-      name,
-      sku,
-      category,
-      unit,
-      costPricePaise,
-      sellingPricePaise,
-      reorderLevel,
-      leadTimeDays,
-      packSize,
-      initialQuantity,
-    } = req.body;
-
-    if (!name || !sku || !unit || costPricePaise === undefined || sellingPricePaise === undefined) {
-      return res.status(400).json({
-        error: 'VALIDATION_FAILED',
-        message: 'Name, SKU, Unit, Cost Price, and Selling Price are required.',
-      });
-    }
-
-    const created = ledgerEngine.addProduct(
-      authReq.tenantId,
-      authReq.userId,
-      {
-        name,
-        sku,
-        category: category || 'General',
-        unit,
-        costPricePaise: Number(costPricePaise),
-        sellingPricePaise: Number(sellingPricePaise),
-        reorderLevel: Number(reorderLevel || 10),
-        leadTimeDays: Number(leadTimeDays || 3),
-        packSize: Number(packSize || 1),
-      },
-      Number(initialQuantity || 0)
-    );
-
-    res.status(201).json({ success: true, product: created });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
-
-// PUT /api/products/:id - Update product settings (OWNER only)
-router.put('/:id', requireRole(['OWNER']), (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const updated = ledgerEngine.updateProduct(authReq.tenantId, req.params.id, req.body);
-    res.json({ success: true, product: updated });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
-
-// DELETE /api/products/:id - Archive product (OWNER only; past ledger history stays intact)
-router.delete('/:id', requireRole(['OWNER']), (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    ledgerEngine.archiveProduct(authReq.tenantId, req.params.id);
-    res.json({ success: true, message: 'Product archived successfully. Past stock and sales history remain intact.' });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
-
-// POST /api/products/:id/adjust - Manual stock adjustment with required reason (OWNER only)
-router.post('/:id/adjust', requireRole(['OWNER']), (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const { deltaQuantity, reason } = req.body;
-
-    if (deltaQuantity === undefined || deltaQuantity === 0) {
-      return res.status(400).json({ error: 'INVALID_DELTA', message: 'Delta quantity must be non-zero.' });
-    }
-
-    if (!reason || reason.trim().length === 0) {
-      return res.status(400).json({
-        error: 'REASON_REQUIRED',
-        message: "A mandatory reason is required (e.g. 'damaged', 'expired', 'counting error').",
-      });
-    }
-
-    const updated = ledgerEngine.manualStockAdjustment(
-      authReq.tenantId,
-      authReq.userId,
-      req.params.id,
-      Number(deltaQuantity),
-      reason
-    );
-
-    res.json({ success: true, product: updated });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
+router.post(
+  '/:id/adjust',
+  ownerOnly,
+  handle((req, res) => {
+    const { deltaQuantity, reason, note } = req.body || {};
+    res.json({ product: ledgerEngine.manualStockAdjustment(req.tenantId, req.userId, req.params.id, deltaQuantity, reason, note) });
+  })
+);
 
 export default router;

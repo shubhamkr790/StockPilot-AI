@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 import { ledgerEngine } from '../db/ledger.ts';
 
@@ -8,32 +9,44 @@ export interface AuthenticatedRequest extends Request {
   userName: string;
 }
 
-export function tenantAuthMiddleware(req: Request, res: Response, next: NextFunction) {
-  // Read tenant and user from headers (or query params for testing/debugging)
-  const tenantId = (req.headers['x-business-id'] as string) || (req.query.businessId as string) || 'biz_ramesh_01';
-  const userId = (req.headers['x-user-id'] as string) || (req.query.userId as string) || 'usr_ramesh';
+// In production set SESSION_SECRET; otherwise tokens are only valid until the server restarts.
+const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
-  const business = ledgerEngine.getBusiness(tenantId);
-  if (!business) {
-    return res.status(404).json({
-      error: 'TENANT_NOT_FOUND',
-      message: `Business tenant with ID '${tenantId}' does not exist.`,
-    });
+/** Token = base64url(payload).HMAC-SHA256. The client can read it but cannot forge or alter it. */
+export function signToken(userId: string): string {
+  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: Date.now() + TOKEN_TTL_MS })).toString('base64url');
+  const sig = crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
+
+function verifyToken(token: string): string | null {
+  const [payload, sig] = token.split('.');
+  if (!payload || !sig) return null;
+  const expected = crypto.createHmac('sha256', SECRET).update(payload).digest();
+  const given = Buffer.from(sig, 'base64url');
+  if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return null;
+  try {
+    const { uid, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return typeof uid === 'string' && Date.now() < exp ? uid : null;
+  } catch {
+    return null;
   }
+}
 
-  const user = ledgerEngine.getUser(userId);
-  if (!user || user.businessId !== tenantId) {
-    return res.status(401).json({
-      error: 'UNAUTHORIZED_USER',
-      message: `User '${userId}' is not authorized for business tenant '${tenantId}'.`,
-    });
+/** The business and role come only from the signed token — never from headers, query or body. */
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const header = req.headers.authorization || '';
+  const userId = header.startsWith('Bearer ') ? verifyToken(header.slice(7)) : null;
+  const user = userId ? ledgerEngine.getUser(userId) : undefined;
+  if (!user) {
+    return res.status(401).json({ error: 'UNAUTHENTICATED', message: 'Please sign in again.' });
   }
-
-  (req as AuthenticatedRequest).tenantId = tenantId;
-  (req as AuthenticatedRequest).userId = userId;
-  (req as AuthenticatedRequest).userRole = user.role;
-  (req as AuthenticatedRequest).userName = user.name;
-
+  const authReq = req as AuthenticatedRequest;
+  authReq.tenantId = user.businessId;
+  authReq.userId = user.id;
+  authReq.userRole = user.role;
+  authReq.userName = user.name;
   next();
 }
 
@@ -43,7 +56,7 @@ export function requireRole(allowedRoles: ('OWNER' | 'STAFF')[]) {
     if (!allowedRoles.includes(authReq.userRole)) {
       return res.status(403).json({
         error: 'FORBIDDEN_ROLE',
-        message: `Action denied. This operation requires one of: [${allowedRoles.join(', ')}]. Current role: '${authReq.userRole}'.`,
+        message: 'Only the shop owner can do this.',
       });
     }
     next();

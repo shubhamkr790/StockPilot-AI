@@ -8,6 +8,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     type: 'KIRANA',
     currency: 'INR',
     address: 'Shop 14, Mandvi Clock Tower Market, Vadodara, Gujarat',
+    targetCoverDays: 4,
   },
   {
     id: 'biz_anita_02',
@@ -16,35 +17,39 @@ export const INITIAL_BUSINESSES: Business[] = [
     type: 'PHARMACY',
     currency: 'INR',
     address: 'Shop 4, Sayajigunj Commercial Complex, Vadodara, Gujarat',
+    targetCoverDays: 7,
   },
 ];
 
 export const INITIAL_USERS: User[] = [
   {
     id: 'usr_ramesh',
+    username: 'ramesh',
     businessId: 'biz_ramesh_01',
-    name: 'Ramesh (Owner)',
+    name: 'Ramesh Patel',
     role: 'OWNER',
     pin: '1234',
   },
   {
     id: 'usr_priya',
+    username: 'priya',
     businessId: 'biz_ramesh_01',
-    name: 'Priya (Staff)',
+    name: 'Priya Desai',
     role: 'STAFF',
     pin: '5678',
   },
   {
     id: 'usr_anita',
+    username: 'anita',
     businessId: 'biz_anita_02',
-    name: 'Anita (Owner)',
+    name: 'Anita Shah',
     role: 'OWNER',
     pin: '9999',
   },
 ];
 
 export const INITIAL_PRODUCTS: Product[] = [
-  // Ramesh General Store (Kirana Products)
+  // Ramesh General Store
   {
     id: 'prod_oil_01',
     businessId: 'biz_ramesh_01',
@@ -55,7 +60,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     costPricePaise: 11000,    // ₹110.00
     sellingPricePaise: 13500, // ₹135.00
     reorderLevel: 15,
-    leadTimeDays: 4,          // 4-day lead time as requested in brief
+    leadTimeDays: 4,
     packSize: 24,             // Carton of 24
     isArchived: false,
     createdAt: '2026-10-01T08:00:00Z',
@@ -238,7 +243,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     updatedAt: '2026-10-01T08:00:00Z',
   },
 
-  // Anita Medical (Pharmacy Products) - STRICT SEPARATION
+  // Anita Medical (separate business)
   {
     id: 'prod_para_21',
     businessId: 'biz_anita_02',
@@ -290,9 +295,8 @@ export const INITIAL_PRODUCTS: Product[] = [
 ];
 
 /**
- * Generates realistic 30-day historical inventory movements for Ramesh General Store.
- * Specifically satisfies the participant brief condition:
- * "Cooking Oil sells 6/day, 9 left, 4-day lead time -> order 48 (2 cartons of 24)"
+ * 30 days of purchases and sales so forecasts have history on first run.
+ * Sunflower oil reproduces the brief's example: sells 6/day, 9 left, 4-day lead time -> order 48.
  */
 export function generateSeedMovements(): InventoryMovement[] {
   const movements: InventoryMovement[] = [];
@@ -317,17 +321,17 @@ export function generateSeedMovements(): InventoryMovement[] {
       reason,
       referenceId: refId || `seed_ref_${movementIndex}`,
       createdByUserId: userId,
-      createdByName: userId === 'usr_priya' ? 'Priya (Staff)' : 'Ramesh (Owner)',
-      timestamp,
+      createdByName: INITIAL_USERS.find((u) => u.id === userId)?.name || 'System',
+      // Never seed a movement in the future (server may boot early in the morning)
+      timestamp: new Date(Math.min(Date.parse(timestamp), Date.now() - 60_000)).toISOString(),
     });
   }
 
-  // 1. Initial Opening Purchases (30 days ago)
+  // Opening purchases 30 days ago
   const baseDate = new Date();
   baseDate.setDate(baseDate.getDate() - 30);
 
-  // Initial stock for Cooking Oil: 189 units purchased 30 days ago
-  // Over 30 days: sells ~6/day -> 30 * 6 = 180 sold -> exactly 9 units left!
+  // Sunflower oil: 189 bought, 6 sold every day for 30 days -> 9 left
   addMovement(
     'biz_ramesh_01',
     'prod_oil_01',
@@ -339,14 +343,11 @@ export function generateSeedMovements(): InventoryMovement[] {
     'INV-OCT-001'
   );
 
-  // Generate daily sales for Cooking Oil: average 6 per day over the past 30 days
   for (let day = 29; day >= 0; day--) {
     const saleDate = new Date();
     saleDate.setDate(saleDate.getDate() - day);
     saleDate.setHours(11 + (day % 6), 15, 0);
 
-    // Day 0 (today) sold 6 units earlier
-    // Total sales across 30 days = 180 units
     const dailyQty = 6;
     addMovement(
       'biz_ramesh_01',
@@ -358,10 +359,8 @@ export function generateSeedMovements(): InventoryMovement[] {
       day % 2 === 0 ? 'usr_priya' : 'usr_ramesh'
     );
   }
-  // Balance for Cooking Oil: 189 - 180 = 9 units left! Velocity = 6.0/day. Lead time = 4 days.
-  // Target = 6 * (4 + 4 safety) = 48. Deficit = 48 - 9 = 39. Rounded up to carton of 24 -> 48 (2 cartons of 24)!
 
-  // 2. Parle-G Biscuits: High velocity, low stock
+  // Parle-G: fast seller, ~9/day
   addMovement(
     'biz_ramesh_01',
     'prod_bisc_02',
@@ -372,7 +371,6 @@ export function generateSeedMovements(): InventoryMovement[] {
     'usr_ramesh',
     'INV-OCT-002'
   );
-  // Sells ~9/day over 30 days = 270 sold -> 30 left (at reorder level 30)
   for (let day = 29; day >= 0; day--) {
     const saleDate = new Date();
     saleDate.setDate(saleDate.getDate() - day);
@@ -388,7 +386,7 @@ export function generateSeedMovements(): InventoryMovement[] {
     );
   }
 
-  // 3. Rice: Continuous unit (kg)
+  // Rice is sold by the kg, so quantities are fractional
   addMovement(
     'biz_ramesh_01',
     'prod_rice_03',
@@ -399,7 +397,6 @@ export function generateSeedMovements(): InventoryMovement[] {
     'usr_ramesh',
     'INV-OCT-003'
   );
-  // Sells 5.5 kg/day over 30 days = 165 sold -> 85 kg left
   for (let day = 29; day >= 0; day--) {
     const saleDate = new Date();
     saleDate.setDate(saleDate.getDate() - day);
@@ -415,7 +412,7 @@ export function generateSeedMovements(): InventoryMovement[] {
     );
   }
 
-  // 4. Initial stock for other Ramesh products
+  // Remaining Ramesh products: one delivery, then 10 days of light sales
   const remainingRamesh = [
     { id: 'prod_soap_04', inStock: 45, reason: 'Dettol wholesale purchase' },
     { id: 'prod_tea_05', inStock: 28, reason: 'Wagh Bakri stock delivery' },
@@ -438,7 +435,6 @@ export function generateSeedMovements(): InventoryMovement[] {
       new Date(baseDate.getTime() + 4000 * 60 * 60).toISOString(),
       'usr_ramesh'
     );
-    // Add 10 days of moderate sales
     for (let day = 9; day >= 0; day--) {
       const saleDate = new Date();
       saleDate.setDate(saleDate.getDate() - day);
@@ -455,13 +451,13 @@ export function generateSeedMovements(): InventoryMovement[] {
     }
   }
 
-  // 5. Anita Medical Seed Stock (Isolated tenant)
+  // Anita Medical: stock only, no sales yet
   addMovement(
     'biz_anita_02',
     'prod_para_21',
     'PURCHASE',
     120,
-    'Apollo Pharma Wholesale delivery (Batch #DOL-882)',
+    'Sayaji Pharma Distributors delivery (Batch #DOL-882)',
     new Date(baseDate.getTime() + 5000 * 60 * 60).toISOString(),
     'usr_anita',
     'INV-APO-441'
@@ -471,7 +467,7 @@ export function generateSeedMovements(): InventoryMovement[] {
     'prod_cough_22',
     'PURCHASE',
     40,
-    'Johnson & Johnson Medical supply',
+    'Baroda Medisupply consignment',
     new Date(baseDate.getTime() + 5000 * 60 * 60).toISOString(),
     'usr_anita',
     'INV-APO-442'
@@ -481,7 +477,7 @@ export function generateSeedMovements(): InventoryMovement[] {
     'prod_band_23',
     'PURCHASE',
     35,
-    'Beiersdorf First-Aid Distributor consignment',
+    'Alkapuri Surgical Traders consignment',
     new Date(baseDate.getTime() + 5000 * 60 * 60).toISOString(),
     'usr_anita',
     'INV-APO-443'

@@ -1,29 +1,30 @@
 {
   "name": "stockpilot-ai",
   "version": "1.0.0",
-  "description": "StockPilot AI - Smart Inventory & Explainable Replenishment System for MedaVida",
+  "description": "StockPilot - inventory ledger, OCR invoice import and explainable restock forecasts for small shops",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev:frontend": "vite",
-    "dev:backend": "tsx watch server/index.ts",
-    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"emerald,white\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:api": "tsx watch server/index.ts",
+    "dev:web": "vite",
     "build": "vite build",
-    "start": "tsx server/index.ts"
+    "start": "tsx server/index.ts",
+    "test": "tsx --test tests/api.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "canvas-confetti": "^1.9.2",
-    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "lucide-react": "^0.344.0",
     "multer": "^1.4.5-lts.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tsx": "^4.7.2"
   },
   "devDependencies": {
-    "@types/canvas-confetti": "^1.9.0",
-    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.12.7",
@@ -31,10 +32,8 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.19",
-    "concurrently": "^8.2.2",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
-    "tsx": "^4.7.2",
     "typescript": "^5.4.5",
     "vite": "^5.2.10"
   }

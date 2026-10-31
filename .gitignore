@@ -2,6 +2,9 @@ node_modules
 .env
 .env.local
 dist
+data/
 *.log
 .DS_Store
 Thumbs.db
+reference-frontend/
+reference-Frontend/

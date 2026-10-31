@@ -1,35 +1,13 @@
-import { Router, Response } from 'express';
-import { AuthenticatedRequest } from '../middleware/auth.ts';
+import { Router } from 'express';
+import { requireRole } from '../middleware/auth.ts';
 import { ledgerEngine } from '../db/ledger.ts';
+import { handle } from './util.ts';
 
 const router = Router();
 
-// GET /api/ledger/movements - Audit trail of all inventory movements
-router.get('/movements', (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const limit = Number(req.query.limit || 100);
-    const movements = ledgerEngine.getMovementHistory(authReq.tenantId, limit);
-
-    res.json({
-      success: true,
-      count: movements.length,
-      movements,
-    });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
-
-// GET /api/ledger/metrics - Executive dashboard metrics
-router.get('/metrics', (req, res: Response) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const metrics = ledgerEngine.getDashboardMetrics(authReq.tenantId);
-    res.json({ success: true, metrics });
-  } catch (err: any) {
-    res.status(err.statusCode || 500).json({ error: err.code || 'SERVER_ERROR', message: err.message });
-  }
-});
+router.get('/metrics', handle((req, res) => res.json({ metrics: ledgerEngine.getDashboardMetrics(req.tenantId) })));
+router.get('/movements', handle((req, res) => res.json({ movements: ledgerEngine.getMovementHistory(req.tenantId, Math.min(Number(req.query.limit) || 100, 500)) })));
+router.get('/audit', requireRole(['OWNER']), handle((req, res) => res.json({ audit: ledgerEngine.getAuditLog(req.tenantId, Math.min(Number(req.query.limit) || 100, 500)) })));
+router.put('/settings', requireRole(['OWNER']), handle((req, res) => res.json({ business: ledgerEngine.updateSettings(req.tenantId, req.userId, req.body || {}) })));
 
 export default router;
