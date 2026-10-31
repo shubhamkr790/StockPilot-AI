@@ -101,6 +101,7 @@ function Root() {
   }
 
   if (!me) {
+    document.title = route === 'login' ? 'Log in · StockPilot AI' : route === 'signup' ? 'Sign up · StockPilot AI' : 'StockPilot AI · Inventory for small shops';
     if (route === 'login') return <Login onLoggedIn={async () => { await loadMe(); go('dashboard'); }} />;
     if (route === 'signup') return <Signup onSignedUp={async () => { await loadMe(); go('dashboard'); }} />;
     return <Landing onStart={() => go('login')} onSignup={() => go('signup')} />;
@@ -109,6 +110,9 @@ function Root() {
   const isOwner = me.user.role === 'OWNER';
   const nav = NAV.filter((n) => isOwner || !n.ownerOnly);
   let current = (nav.find((n) => n.id === route)?.id || 'dashboard') as Route;
+
+  const title = nav.find((n) => n.id === current)?.label;
+  document.title = `${title === 'Home' ? 'Dashboard' : title} · StockPilot AI`;
 
   const page = {
     dashboard: <Dashboard me={me} go={go} />,
