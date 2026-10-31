@@ -15,6 +15,7 @@ import {
   UnitOfMeasure,
 } from './schema.ts';
 import { INITIAL_BUSINESSES, INITIAL_USERS, INITIAL_PRODUCTS, generateSeedMovements } from './seed.ts';
+import { hashPassword } from '../middleware/password.ts';
 
 // ---------------------------------------------------------------------------
 // Errors & validation helpers
@@ -178,7 +179,16 @@ export class InventoryLedgerEngine {
 
   private load(state: PersistedState) {
     this.businesses = new Map(state.businesses.map((b) => [b.id, b]));
-    this.users = new Map(state.users.map((u) => [u.id, u]));
+    // Older snapshots stored demo PINs in plain text; hash them on load.
+    this.users = new Map(
+      state.users.map((u: any) => {
+        if (u.pin && !u.passwordHash) {
+          const { pin, ...rest } = u;
+          return [u.id, { ...rest, passwordHash: hashPassword(pin) }];
+        }
+        return [u.id, u];
+      })
+    );
     this.products = new Map(state.products.map((p) => [p.id, p]));
     this.movements = state.movements;
     this.invoices = new Map(state.invoices.map((i) => [i.id, i]));
@@ -211,7 +221,7 @@ export class InventoryLedgerEngine {
 
   public resetToDefaults() {
     this.businesses = new Map(INITIAL_BUSINESSES.map((b) => [b.id, { ...b }]));
-    this.users = new Map(INITIAL_USERS.map((u) => [u.id, { ...u }]));
+    this.users = new Map(INITIAL_USERS.map(({ pin, ...u }) => [u.id, { ...u, passwordHash: hashPassword(pin) }]));
     this.products = new Map(INITIAL_PRODUCTS.map((p) => [p.id, { ...p }]));
     this.movements = generateSeedMovements();
     this.invoices.clear();
@@ -233,9 +243,72 @@ export class InventoryLedgerEngine {
     return this.users.get(userId);
   }
 
-  public findUserByUsername(username: string) {
-    const u = username.trim().toLowerCase();
-    return [...this.users.values()].find((x) => x.username === u);
+  /** Login identifier can be the username or the email address. */
+  public findUserByLogin(identifier: string) {
+    const id = identifier.trim().toLowerCase();
+    return [...this.users.values()].find((x) => x.username === id || (x.email && x.email === id));
+  }
+
+  // --- Accounts: owner sign-up and staff management ---------------------------
+
+  private assertNewEmail(email: unknown): string {
+    const e = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || e.length > 120) throw new AppError(400, 'INVALID_EMAIL', 'Enter a valid email address.');
+    if (this.findUserByLogin(e)) throw new AppError(409, 'EMAIL_TAKEN', 'An account with this email already exists.');
+    return e;
+  }
+
+  private assertPassword(password: unknown): string {
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+      throw new AppError(400, 'WEAK_PASSWORD', 'Password must be at least 8 characters.');
+    }
+    return password;
+  }
+
+  /** Creates a new business and its owner. Each sign-up gets its own isolated inventory. */
+  public registerOwner(data: Record<string, unknown>) {
+    const name = assertText(data.name, 'Your name', 60);
+    const businessName = assertText(data.businessName, 'Business name', 80);
+    const email = this.assertNewEmail(data.email);
+    const password = this.assertPassword(data.password);
+    const type = (['KIRANA', 'PHARMACY', 'GENERAL'].includes(String(data.businessType)) ? data.businessType : 'GENERAL') as Business['type'];
+    const business: Business = { id: newId('biz'), name: businessName, ownerName: name, type, currency: 'INR', address: '', targetCoverDays: 4 };
+    const user: User = { id: newId('usr'), businessId: business.id, username: email, email, name, role: 'OWNER', passwordHash: hashPassword(password) };
+    this.businesses.set(business.id, business);
+    this.users.set(user.id, user);
+    this.logAudit({ businessId: business.id, userId: user.id, action: 'BUSINESS_CREATED', entityType: 'AUTH', entityId: business.id, summary: `${name} created ${businessName}` });
+    this.persist();
+    return user;
+  }
+
+  /** Staff can't sign themselves up; the owner creates their account inside the owner's business. */
+  public createStaff(businessId: string, ownerId: string, data: Record<string, unknown>) {
+    const name = assertText(data.name, 'Name', 60);
+    const email = this.assertNewEmail(data.email);
+    const password = this.assertPassword(data.password);
+    const user: User = { id: newId('usr'), businessId, username: email, email, name, role: 'STAFF', passwordHash: hashPassword(password) };
+    this.users.set(user.id, user);
+    this.logAudit({ businessId, userId: ownerId, action: 'STAFF_ADDED', entityType: 'AUTH', entityId: user.id, summary: `Added staff member ${name} (${email})` });
+    this.persist();
+    return this.publicUser(user);
+  }
+
+  public listStaff(businessId: string) {
+    return [...this.users.values()].filter((u) => u.businessId === businessId).map((u) => this.publicUser(u));
+  }
+
+  /** Removing staff disables the account; their past sales stay in the ledger. */
+  public removeStaff(businessId: string, ownerId: string, userId: string) {
+    const user = this.users.get(userId);
+    if (!user || user.businessId !== businessId) throw new AppError(404, 'USER_NOT_FOUND', 'Staff member not found.');
+    if (user.role !== 'STAFF') throw new AppError(400, 'NOT_STAFF', 'Only staff accounts can be removed here.');
+    this.users.set(userId, { ...user, disabled: true });
+    this.logAudit({ businessId, userId: ownerId, action: 'STAFF_REMOVED', entityType: 'AUTH', entityId: userId, summary: `Removed staff member ${user.name}` });
+    this.persist();
+  }
+
+  public publicUser(u: User) {
+    return { id: u.id, username: u.username, email: u.email, name: u.name, role: u.role, disabled: !!u.disabled };
   }
 
   public listUsers() {

@@ -462,3 +462,52 @@ test('daily brief is owner-only and built from calculated numbers', async () => 
   assert.ok(r.json.brief.length > 20);
   assert.equal((await call('GET', '/api/ai/brief', { as: 'priya' })).status, 403);
 });
+
+// --- Sign-up, password hashing and staff management --------------------------
+
+test('passwords are stored hashed, never as plain text', () => {
+  for (const u of ledgerEngine.listUsers()) {
+    assert.ok(!('pin' in (u as any)), `${u.username} has a plain pin`);
+    assert.match(u.passwordHash, /^[0-9a-f]{32}:[0-9a-f]{64}$/);
+  }
+});
+
+test('owner sign-up creates a separate, empty business', async () => {
+  const bad = await call('POST', '/api/auth/register', { body: { name: 'Sunil', businessName: 'Sunil Stores', email: 'not-an-email', password: 'longenough1' } });
+  assert.equal(bad.status, 400);
+  const weak = await call('POST', '/api/auth/register', { body: { name: 'Sunil', businessName: 'Sunil Stores', email: 'sunil@example.com', password: 'short' } });
+  assert.equal(weak.status, 400);
+  const r = await call('POST', '/api/auth/register', { body: { name: 'Sunil', businessName: 'Sunil Stores', email: 'Sunil@Example.com', password: 'longenough1' } });
+  assert.equal(r.status, 201);
+  tokens.sunil = r.json.token;
+  const me = (await call('GET', '/api/auth/me', { as: 'sunil' })).json;
+  assert.equal(me.user.role, 'OWNER');
+  assert.equal(me.business.name, 'Sunil Stores');
+  assert.equal((await call('GET', '/api/products', { as: 'sunil' })).json.products.length, 0);
+  assert.equal((await call('GET', '/api/products/prod_oil_01', { as: 'sunil' })).status, 404);
+  // Same email again is refused; login works by email, case-insensitive.
+  assert.equal((await call('POST', '/api/auth/register', { body: { name: 'X', businessName: 'Y', email: 'sunil@example.com', password: 'longenough1' } })).status, 409);
+  assert.equal((await call('POST', '/api/auth/login', { body: { identifier: 'SUNIL@example.com', password: 'longenough1' } })).status, 200);
+  // New sign-ups are not exposed on the public demo list.
+  const demo = (await call('GET', '/api/auth/demo-accounts')).json.accounts;
+  assert.deepEqual(demo.map((a: any) => a.username).sort(), ['anita', 'priya', 'ramesh']);
+});
+
+test('owner adds and removes staff; staff cannot manage staff', async () => {
+  const add = await call('POST', '/api/staff', { as: 'sunil', body: { name: 'Meena', email: 'meena@example.com', password: 'counter123' } });
+  assert.equal(add.status, 201);
+  const login = await call('POST', '/api/auth/login', { body: { identifier: 'meena@example.com', password: 'counter123' } });
+  tokens.meena = login.json.token;
+  const me = (await call('GET', '/api/auth/me', { as: 'meena' })).json;
+  assert.equal(me.user.role, 'STAFF');
+  assert.equal(me.business.name, 'Sunil Stores');
+  assert.equal((await call('GET', '/api/staff', { as: 'meena' })).status, 403);
+  assert.equal((await call('POST', '/api/staff', { as: 'priya', body: { name: 'Z', email: 'z@example.com', password: 'longenough1' } })).status, 403);
+  // Ramesh can't see or remove Sunil's staff.
+  assert.ok(!(await call('GET', '/api/staff', { as: 'ramesh' })).json.users.some((u: any) => u.email === 'meena@example.com'));
+  assert.equal((await call('DELETE', `/api/staff/${add.json.user.id}`, { as: 'ramesh' })).status, 404);
+  // Removing staff ends their access straight away.
+  assert.equal((await call('DELETE', `/api/staff/${add.json.user.id}`, { as: 'sunil' })).status, 200);
+  assert.equal((await call('GET', '/api/products', { as: 'meena' })).status, 401);
+  assert.equal((await call('POST', '/api/auth/login', { body: { identifier: 'meena@example.com', password: 'counter123' } })).status, 401);
+});

@@ -11,6 +11,7 @@ import invoicesRouter from './routes/invoices.ts';
 import forecastRouter from './routes/forecast.ts';
 import ledgerRouter from './routes/ledger.ts';
 import aiRouter from './routes/ai.ts';
+import staffRouter from './routes/staff.ts';
 import { requireAuth } from './middleware/auth.ts';
 import { ocrProviderName } from './ai/invoiceOcr.ts';
 
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/forecast', requireAuth, forecastRouter);
   app.use('/api/ledger', requireAuth, ledgerRouter);
   app.use('/api/ai', requireAuth, aiRouter);
+  app.use('/api/staff', requireAuth, staffRouter);
   app.use('/api', (_req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Unknown API route.' }));
 
   const distPath = path.join(__dirname, '../dist');

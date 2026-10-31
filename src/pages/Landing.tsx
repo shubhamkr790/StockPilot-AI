@@ -10,15 +10,16 @@ const FEATURES = [
   { icon: Users, title: 'Owner and staff roles', body: 'Staff sell and view stock. Prices, deletions and invoice approval stay with the owner.' },
 ];
 
-export function Landing({ onStart }: { onStart: () => void }) {
+export function Landing({ onStart, onSignup }: { onStart: () => void; onSignup: () => void }) {
   return (
     <div className="min-h-screen bg-white">
       <nav className="sticky top-0 z-20 bg-[#FBF8F3]/85 backdrop-blur border-b border-stone-200/60">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Logo />
-          <button onClick={onStart} className="btn-primary btn-sm">
-            Sign in
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={onStart} className="btn-ghost btn-sm">Log in</button>
+            <button onClick={onSignup} className="btn-primary btn-sm">Get started</button>
+          </div>
         </div>
       </nav>
 
@@ -37,11 +38,14 @@ export function Landing({ onStart }: { onStart: () => void }) {
             StockPilot replaces the stock notebook. AI reads your supplier invoices, staff ring up a sale by typing or saying it, and you see exactly what to reorder and why.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <button onClick={onStart} className="btn-primary h-12 px-7 text-base">
-              Try the demo <ArrowRight className="w-4 h-4" />
+            <button onClick={onSignup} className="btn-primary h-12 px-7 text-base">
+              Get started <ArrowRight className="w-4 h-4" />
+            </button>
+            <button onClick={onStart} className="btn-outline h-12 px-7 text-base">
+              Try the demo
             </button>
           </div>
-          <p className="mt-3 text-sm text-stone-500">Demo accounts for owner and staff are on the sign-in page.</p>
+          <p className="mt-3 text-sm text-stone-500">Create your shop in a minute, or use the demo accounts on the login page.</p>
         </div>
 
         {/* Real screenshot of the owner dashboard, framed like a browser window */}

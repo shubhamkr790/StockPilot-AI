@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LayoutGrid, ShoppingCart, Package, FileText, PackagePlus, History, FlaskConical, LogOut } from 'lucide-react';
+import { LayoutGrid, ShoppingCart, Package, FileText, PackagePlus, History, FlaskConical, LogOut, Users, Menu } from 'lucide-react';
 import { api, session, Me } from './lib/api';
 import { Logo, Spinner, ToastProvider } from './components/ui';
 import { Landing } from './pages/Landing';
@@ -11,8 +11,10 @@ import { Invoices } from './pages/Invoices';
 import { Restock } from './pages/Restock';
 import { Activity } from './pages/Activity';
 import { TestLab } from './pages/TestLab';
+import { Signup } from './pages/Signup';
+import { Staff } from './pages/Staff';
 
-export type Route = 'dashboard' | 'sell' | 'products' | 'invoices' | 'restock' | 'activity' | 'testlab';
+export type Route = 'dashboard' | 'sell' | 'products' | 'invoices' | 'restock' | 'staff' | 'activity' | 'testlab';
 
 const NAV: { id: Route; label: string; icon: React.ElementType; ownerOnly?: boolean; mobile?: boolean }[] = [
   { id: 'dashboard', label: 'Home', icon: LayoutGrid, mobile: true },
@@ -20,6 +22,7 @@ const NAV: { id: Route; label: string; icon: React.ElementType; ownerOnly?: bool
   { id: 'products', label: 'Products', icon: Package, mobile: true },
   { id: 'invoices', label: 'Invoices', icon: FileText, ownerOnly: true, mobile: true },
   { id: 'restock', label: 'Restock', icon: PackagePlus, ownerOnly: true, mobile: true },
+  { id: 'staff', label: 'Staff', icon: Users, ownerOnly: true },
   { id: 'activity', label: 'Activity', icon: History, ownerOnly: true },
   { id: 'testlab', label: 'Test lab', icon: FlaskConical, ownerOnly: true },
 ];
@@ -50,6 +53,22 @@ function Root() {
   const [route, go] = useHashRoute();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(!!session.token);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('stockpilot_sidebar') === 'collapsed';
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () =>
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem('stockpilot_sidebar', c ? 'open' : 'collapsed');
+      } catch {
+        /* storage blocked: keep it for this visit only */
+      }
+      return !c;
+    });
 
   const logout = useCallback(() => {
     session.set(null);
@@ -83,7 +102,8 @@ function Root() {
 
   if (!me) {
     if (route === 'login') return <Login onLoggedIn={async () => { await loadMe(); go('dashboard'); }} />;
-    return <Landing onStart={() => go('login')} />;
+    if (route === 'signup') return <Signup onSignedUp={async () => { await loadMe(); go('dashboard'); }} />;
+    return <Landing onStart={() => go('login')} onSignup={() => go('signup')} />;
   }
 
   const isOwner = me.user.role === 'OWNER';
@@ -96,38 +116,52 @@ function Root() {
     products: <Products me={me} />,
     invoices: <Invoices />,
     restock: <Restock me={me} onSettingsChanged={loadMe} />,
+    staff: <Staff />,
     activity: <Activity />,
     testlab: <TestLab />,
   }[current];
 
   return (
-    <div className="min-h-screen lg:pl-64">
-      {/* Desktop sidebar */}
-      <aside className="no-print hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col border-r border-stone-200 bg-white">
-        <div className="h-16 flex items-center px-5 border-b border-stone-200">
-          <Logo />
+    <div className={`min-h-screen transition-[padding] duration-200 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-64'}`}>
+      {/* Desktop sidebar; the ☰ button collapses it to icons only */}
+      <aside className={`no-print hidden lg:flex fixed inset-y-0 left-0 flex-col border-r border-stone-200 bg-white transition-[width] duration-200 ${collapsed ? 'w-[72px]' : 'w-64'}`}>
+        <div className={`h-16 flex items-center border-b border-stone-200 ${collapsed ? 'justify-center' : 'justify-between pl-5 pr-3'}`}>
+          {!collapsed && <Logo />}
+          <button
+            onClick={toggleCollapsed}
+            className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-800"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {nav.map((n) => (
             <button
               key={n.id}
               onClick={() => go(n.id)}
-              className={`w-full flex items-center gap-3 rounded-xl px-3 h-11 text-[15px] transition-colors ${
+              title={collapsed ? n.label : undefined}
+              className={`w-full flex items-center rounded-xl h-11 text-[15px] transition-colors ${collapsed ? 'justify-center' : 'gap-3 px-3'} ${
                 current === n.id ? 'bg-brand-50 text-brand-700 font-medium' : 'text-stone-600 hover:bg-stone-50'
               }`}
             >
-              <n.icon className="w-5 h-5" />
-              {n.label}
+              <n.icon className="w-5 h-5 shrink-0" />
+              {!collapsed && n.label}
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-stone-200">
-          <p className="text-sm font-medium text-stone-900 truncate">{me.user.name}</p>
-          <p className="text-[13px] text-stone-500 truncate">
-            {isOwner ? 'Owner' : 'Staff'} · {me.business.name}
-          </p>
-          <button onClick={logout} className="btn-outline btn-sm w-full mt-3">
-            <LogOut className="w-4 h-4" /> Sign out
+        <div className={`border-t border-stone-200 ${collapsed ? 'p-3' : 'p-4'}`}>
+          {!collapsed && (
+            <>
+              <p className="text-sm font-medium text-stone-900 truncate">{me.user.name}</p>
+              <p className="text-[13px] text-stone-500 truncate">
+                {isOwner ? 'Owner' : 'Staff'} · {me.business.name}
+              </p>
+            </>
+          )}
+          <button onClick={logout} title="Sign out" className={`btn-outline btn-sm w-full ${collapsed ? 'px-0' : 'mt-3'}`}>
+            <LogOut className="w-4 h-4" /> {!collapsed && 'Sign out'}
           </button>
         </div>
       </aside>

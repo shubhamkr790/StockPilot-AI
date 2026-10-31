@@ -21,7 +21,8 @@ export const INITIAL_BUSINESSES: Business[] = [
   },
 ];
 
-export const INITIAL_USERS: User[] = [
+// Demo PINs are hashed when the data is seeded; only the hash is ever stored.
+export const INITIAL_USERS: (Omit<User, 'passwordHash'> & { pin: string })[] = [
   {
     id: 'usr_ramesh',
     username: 'ramesh',

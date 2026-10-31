@@ -18,9 +18,11 @@ export interface User {
   id: string;
   businessId: string;
   username: string;
+  email?: string;
   name: string;
   role: UserRole;
-  pin: string;
+  passwordHash: string;
+  disabled?: boolean;
 }
 
 export interface Product {

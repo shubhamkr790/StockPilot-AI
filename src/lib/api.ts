@@ -2,6 +2,15 @@ export type Unit = 'pcs' | 'kg' | 'litre' | 'box';
 export type Role = 'OWNER' | 'STAFF';
 export type StockStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 
+export interface StaffUser {
+  id: string;
+  username: string;
+  email?: string;
+  name: string;
+  role: Role;
+  disabled: boolean;
+}
+
 export interface Me {
   user: { id: string; username: string; name: string; role: Role };
   business: { id: string; name: string; type: string; address: string; targetCoverDays: number };
@@ -225,7 +234,12 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown; as
 export const api = {
   request,
   demoAccounts: () => request<{ accounts: { username: string; name: string; role: Role; businessName: string }[] }>('/api/auth/demo-accounts'),
-  login: (username: string, pin: string) => request<{ token: string }>('/api/auth/login', { method: 'POST', json: { username, pin } }),
+  login: (identifier: string, password: string) => request<{ token: string }>('/api/auth/login', { method: 'POST', json: { identifier, password } }),
+  register: (data: { name: string; businessName: string; businessType: string; email: string; password: string }) =>
+    request<{ token: string }>('/api/auth/register', { method: 'POST', json: data }),
+  staff: () => request<{ users: StaffUser[] }>('/api/staff'),
+  addStaff: (data: { name: string; email: string; password: string }) => request<{ user: StaffUser }>('/api/staff', { method: 'POST', json: data }),
+  removeStaff: (id: string) => request<{ message: string }>(`/api/staff/${id}`, { method: 'DELETE' }),
   me: () => request<Me>('/api/auth/me'),
 
   metrics: () => request<{ metrics: Metrics }>('/api/ledger/metrics'),

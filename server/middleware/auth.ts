@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 import { ledgerEngine } from '../db/ledger.ts';
+export { hashPassword, verifyPassword } from './password.ts';
 
 export interface AuthenticatedRequest extends Request {
   tenantId: string;
@@ -39,7 +40,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization || '';
   const userId = header.startsWith('Bearer ') ? verifyToken(header.slice(7)) : null;
   const user = userId ? ledgerEngine.getUser(userId) : undefined;
-  if (!user) {
+  if (!user || user.disabled) {
     return res.status(401).json({ error: 'UNAUTHENTICATED', message: 'Please sign in again.' });
   }
   const authReq = req as AuthenticatedRequest;
